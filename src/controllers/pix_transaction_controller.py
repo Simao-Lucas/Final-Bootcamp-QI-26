@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from controllers.base_controller import BaseController
 from dtos import PixTransactionDTO
@@ -11,6 +11,13 @@ from repositories import (
 )
 from services.document_freshness import DocumentFreshnessService
 from utils.fraud_engine import FraudEngine, build_evaluation_context
+
+# Brasil sem horario de verao desde 2019: offset fixo evita depender do
+# pacote tzdata no Windows.
+BRASILIA_TZ = timezone(timedelta(hours=-3))
+# Precisa cobrir a maior janela das regras com folga: DORMANT_REACTIVATION
+# so enxerga a inatividade se o ultimo Pix anterior estiver no historico.
+HISTORY_LOOKBACK_DAYS = 400
 
 
 class PixTransactionController(BaseController):
@@ -61,6 +68,7 @@ class PixTransactionController(BaseController):
                 "triggered_rules": [],
                 "score": 0,
                 "score_threshold_2fa": rule_set.score_threshold_2fa,
+                "score_threshold_reject": rule_set.score_threshold_reject,
                 "decision_reason": "document_blocked",
                 "matched_pattern": None,
                 "blocked_documents": blocked_documents,
@@ -68,8 +76,13 @@ class PixTransactionController(BaseController):
             }
             rule_set_id = rule_set.id
         else:
-            source_history = self.pix_repository.list_by_source_document(source_document)
-            dest_history = self.pix_repository.list_by_dest_document(dest_document)
+            history_since = transaction_date - timedelta(days=HISTORY_LOOKBACK_DAYS)
+            source_history = self.pix_repository.list_by_source_document(
+                source_document, since=history_since, until=transaction_date
+            )
+            dest_history = self.pix_repository.list_by_dest_document(
+                dest_document, since=history_since, until=transaction_date
+            )
             context = build_evaluation_context(
                 payload,
                 transaction_date,
@@ -119,5 +132,5 @@ class PixTransactionController(BaseController):
     def _parse_datetime(self, raw_value: str) -> datetime:
         parsed = datetime.fromisoformat(raw_value)
         if parsed.tzinfo is not None:
-            parsed = parsed.replace(tzinfo=None)
+            parsed = parsed.astimezone(BRASILIA_TZ).replace(tzinfo=None)
         return parsed

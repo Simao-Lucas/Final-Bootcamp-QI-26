@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import uuid4
 
 from database import Context
@@ -64,70 +64,104 @@ class PixTransactionRepository:
         return pix
 
     def list_by_source_document(
-        self, document_number: str, since: datetime | None = None
+        self,
+        document_number: str,
+        since: datetime | None = None,
+        until: datetime | None = None,
     ) -> list[PixTransaction]:
         query = self.session.query(PixTransaction).filter(
             PixTransaction.source_document == document_number
         )
-        if since is not None:
-            query = query.filter(PixTransaction.transaction_date >= since)
+        query = self._filter_period(query, since, until)
         return query.order_by(PixTransaction.transaction_date.asc()).all()
 
     def list_by_dest_document(
-        self, document_number: str, since: datetime | None = None
+        self,
+        document_number: str,
+        since: datetime | None = None,
+        until: datetime | None = None,
     ) -> list[PixTransaction]:
         query = self.session.query(PixTransaction).filter(
             PixTransaction.dest_document == document_number
         )
-        if since is not None:
-            query = query.filter(PixTransaction.transaction_date >= since)
+        query = self._filter_period(query, since, until)
         return query.order_by(PixTransaction.transaction_date.asc()).all()
 
-    def count_source_to_dest(self, source_document: str, dest_document: str) -> int:
-        return (
-            self.session.query(PixTransaction)
-            .filter(
-                PixTransaction.source_document == source_document,
-                PixTransaction.dest_document == dest_document,
-            )
-            .count()
-        )
-
-    def count_rejects_for_dest(self, dest_document: str, since: datetime) -> int:
-        return (
-            self.session.query(PixTransaction)
-            .filter(
-                PixTransaction.dest_document == dest_document,
-                PixTransaction.status == "rejected",
-                PixTransaction.transaction_date >= since,
-            )
-            .count()
-        )
-
-    def has_recent_adverse_for_source(
-        self, source_document: str, since: datetime
-    ) -> bool:
-        return (
-            self.session.query(PixTransaction)
-            .filter(
-                PixTransaction.source_document == source_document,
-                PixTransaction.status.in_(["rejected", "two_factor_required"]),
-                PixTransaction.transaction_date >= since,
-            )
-            .first()
-            is not None
-        )
-
-    def count_distinct_devices_for_device(
-        self, device_id: str, since: datetime
+    def count_source_to_dest(
+        self,
+        source_document: str,
+        dest_document: str,
+        until: datetime | None = None,
+        statuses: list[str] | None = None,
     ) -> int:
-        rows = (
-            self.session.query(PixTransaction.source_document)
-            .filter(
-                PixTransaction.device_id == device_id,
-                PixTransaction.transaction_date >= since,
-            )
-            .distinct()
-            .all()
+        query = self.session.query(PixTransaction).filter(
+            PixTransaction.source_document == source_document,
+            PixTransaction.dest_document == dest_document,
         )
-        return len(rows)
+        if statuses is not None:
+            query = query.filter(PixTransaction.status.in_(statuses))
+        query = self._filter_period(query, None, until)
+        return query.count()
+
+    def count_distinct_rejecting_payers_for_dest(
+        self, dest_document: str, since: datetime, until: datetime
+    ) -> int:
+        # triggered_mask = 0 e rejeicao por denylist (document_blocked): o
+        # bloqueio pode ser do pagador e nao diz nada sobre o destino.
+        query = self.session.query(PixTransaction.source_document).filter(
+            PixTransaction.dest_document == dest_document,
+            PixTransaction.status == "rejected",
+            PixTransaction.triggered_mask != 0,
+        )
+        query = self._filter_period(query, since, until)
+        return query.distinct().count()
+
+    def has_recent_status_for_source(
+        self,
+        source_document: str,
+        statuses: list[str],
+        since: datetime,
+        until: datetime,
+    ) -> bool:
+        query = self.session.query(PixTransaction).filter(
+            PixTransaction.source_document == source_document,
+            PixTransaction.status.in_(statuses),
+        )
+        query = self._filter_period(query, since, until)
+        return query.first() is not None
+
+    def count_other_payers_for_device(
+        self,
+        device_id: str,
+        exclude_document: str,
+        since: datetime,
+        until: datetime,
+    ) -> int:
+        query = self.session.query(PixTransaction.source_document).filter(
+            PixTransaction.device_id == device_id,
+            PixTransaction.source_document != exclude_document,
+        )
+        query = self._filter_period(query, since, until)
+        return query.distinct().count()
+
+    def count_other_payers_for_ip(
+        self,
+        ip: str,
+        exclude_document: str,
+        since: datetime,
+        until: datetime,
+    ) -> int:
+        query = self.session.query(PixTransaction.source_document).filter(
+            PixTransaction.ip == ip,
+            PixTransaction.source_document != exclude_document,
+        )
+        query = self._filter_period(query, since, until)
+        return query.distinct().count()
+
+    @staticmethod
+    def _filter_period(query, since: datetime | None, until: datetime | None):
+        if since is not None:
+            query = query.filter(PixTransaction.transaction_date >= since)
+        if until is not None:
+            query = query.filter(PixTransaction.transaction_date <= until)
+        return query
