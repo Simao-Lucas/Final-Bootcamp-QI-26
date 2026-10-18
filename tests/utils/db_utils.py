@@ -1,7 +1,7 @@
 from os import environ
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 
 
@@ -64,6 +64,42 @@ class DbUtils:
                     connection.exec_driver_sql(query)
 
                 connection.exec_driver_sql(SCHEMA_FILE.read_text())
+        except OperationalError:
+            message = DATABASE_OFFLINE.format(host=engine.url.host, port=engine.url.port)
+            raise RuntimeError(message) from None
+        finally:
+            engine.dispose()
+
+    @staticmethod
+    def insert_document_block(
+        document_number: str,
+        reason: str = "condenado em teste",
+        source: str = "mock_api",
+    ) -> None:
+        """Coloca um CPF/CNPJ na denylist local — setup de cenario, nao regra."""
+        engine = create_engine(DbUtils.database_url(), isolation_level="AUTOCOMMIT")
+
+        try:
+            with engine.connect() as connection:
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO document_block
+                            (document_number, reason, source, raw_payload)
+                        VALUES
+                            (:document_number, :reason, :source, '{}'::jsonb)
+                        ON CONFLICT (document_number) DO UPDATE SET
+                            reason = EXCLUDED.reason,
+                            source = EXCLUDED.source,
+                            last_checked_at = NOW()
+                        """
+                    ),
+                    {
+                        "document_number": document_number,
+                        "reason": reason,
+                        "source": source,
+                    },
+                )
         except OperationalError:
             message = DATABASE_OFFLINE.format(host=engine.url.host, port=engine.url.port)
             raise RuntimeError(message) from None
