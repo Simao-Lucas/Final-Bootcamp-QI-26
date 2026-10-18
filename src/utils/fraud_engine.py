@@ -31,13 +31,12 @@ def decide_status(
     score: int,
     patterns: list[FraudCriticalPattern],
     score_threshold_2fa: int,
-    score_threshold_reject: int | None = None,
 ) -> tuple[str, str, FraudCriticalPattern | None]:
+    # Reject so por pattern critico (ou denylist no controller). Score alto
+    # sem pattern cai em 2FA — nunca reject por soma de pesos.
     matched = match_critical_pattern(triggered_mask, patterns)
     if matched is not None:
         return REJECTED, "critical_pattern_matched", matched
-    if score_threshold_reject is not None and score >= score_threshold_reject:
-        return REJECTED, "score_above_reject_threshold", None
     if score >= score_threshold_2fa:
         return TWO_FACTOR, "score_above_threshold", None
     return APPROVED, "approved", None
@@ -63,7 +62,6 @@ class FraudEngine:
             score,
             list(rule_set.patterns),
             rule_set.score_threshold_2fa,
-            rule_set.score_threshold_reject,
         )
 
         metadata = {
@@ -72,7 +70,6 @@ class FraudEngine:
             "triggered_rules": triggered_rules,
             "score": score,
             "score_threshold_2fa": rule_set.score_threshold_2fa,
-            "score_threshold_reject": rule_set.score_threshold_reject,
             "decision_reason": decision_reason,
             "matched_pattern": matched.code if matched is not None else None,
         }

@@ -2,10 +2,17 @@
 
 Foca na matematica: submascara de pattern (exato e superset), bit
 faltando nao rejeita, score >= limiar pede 2FA, score baixo aprova.
-Os cenarios usam o seed v1 (threshold 40, patterns do database.sql).
+Reject so por pattern (ou denylist). Seed v1: threshold 2FA 40.
 """
 
+import sys
+from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+
+from utils.fraud_engine import decide_status
 
 from tests.utils import PayloadGenerator, RandomGenerator, RequestGenerator
 
@@ -168,8 +175,36 @@ class TestFraudEngineDecision:
         assert status == 201
         metadata = response["metadata"]
         assert metadata["rule_set_version"] == 1
+        assert metadata["score_threshold_2fa"] == 40
+        assert "score_threshold_reject" not in metadata
         assert "triggered_mask" in metadata
         assert "triggered_rules" in metadata
         assert isinstance(metadata["triggered_rules"], list)
         assert "score" in metadata
         assert "decision_reason" in metadata
+
+    def test_high_score_without_pattern_asks_two_factor_not_reject(self):
+        status, reason, matched = decide_status(
+            triggered_mask=0,
+            score=200,
+            patterns=[],
+            score_threshold_2fa=40,
+        )
+
+        assert status == "two_factor_required"
+        assert reason == "score_above_threshold"
+        assert matched is None
+
+    def test_critical_pattern_rejects_regardless_of_score(self):
+        pattern = SimpleNamespace(id=1, code="UNIT_PATTERN", pattern_mask=0b101)
+
+        status, reason, matched = decide_status(
+            triggered_mask=0b101,
+            score=200,
+            patterns=[pattern],
+            score_threshold_2fa=40,
+        )
+
+        assert status == "rejected"
+        assert reason == "critical_pattern_matched"
+        assert matched is pattern

@@ -43,11 +43,9 @@ CREATE TABLE fraud_rule_set(
     id                              SERIAL PRIMARY KEY,
     version                         INTEGER NOT NULL,
     score_threshold_2fa             INTEGER NOT NULL,
-    score_threshold_reject          INTEGER,
     is_active                       BOOLEAN NOT NULL DEFAULT FALSE,
     created_at                      TIMESTAMP NOT NULL DEFAULT(NOW()),
-    UNIQUE(version),
-    CHECK (score_threshold_reject IS NULL OR score_threshold_reject > score_threshold_2fa)
+    UNIQUE(version)
 );
 
 -- No máximo um rule_set ativo por vez
@@ -145,8 +143,8 @@ CREATE TABLE document_block(
 -- Params *_cnpj substituem o limite padrão quando o documento é CNPJ.
 -- ---------------------------------------------------------------------------
 
-INSERT INTO fraud_rule_set (id, version, score_threshold_2fa, score_threshold_reject, is_active)
-VALUES (1, 1, 40, 150, TRUE);
+INSERT INTO fraud_rule_set (id, version, score_threshold_2fa, is_active)
+VALUES (1, 1, 40, TRUE);
 
 SELECT setval(pg_get_serial_sequence('fraud_rule_set', 'id'), 1);
 
@@ -157,11 +155,11 @@ INSERT INTO fraud_rule (rule_set_id, code, bit_index, weight, params, descriptio
  'Valor incomum: escore z robusto (mediana/MAD do log) >= 3 no perfil do tipo de destino (CPF/CNPJ), com fallback no perfil geral'),
 (1, 'VELOCITY_COUNT',            2,  30, '{"max_count": 5, "window_minutes": 10}'::JSONB,
  'Muitas tentativas de Pix do mesmo pagador em pouco tempo'),
-(1, 'AMOUNT_SPLITTING',          3,  30, '{"unit_ceiling_cents": 100000, "min_parts": 3, "window_minutes": 30, "sum_ceiling_cents": 250000}'::JSONB,
+(1, 'AMOUNT_SPLITTING',          3,  40, '{"unit_ceiling_cents": 100000, "min_parts": 3, "window_minutes": 30, "sum_ceiling_cents": 250000}'::JSONB,
  'Vários Pix abaixo de um teto unitário somando alto na janela'),
 (1, 'UNKNOWN_DEVICE',            4,  30, '{}'::JSONB,
  'device_id nunca visto em Pix não rejeitado deste pagador'),
-(1, 'IMPLAUSIBLE_GEO',           5,  30, '{"max_km_per_hour": 1000, "min_distance_km": 100}'::JSONB,
+(1, 'IMPLAUSIBLE_GEO',           5,  40, '{"max_km_per_hour": 1000, "min_distance_km": 100}'::JSONB,
  'Deslocamento acima da velocidade de um voo comercial desde o último Pix'),
 (1, 'NEW_DEST_ACCOUNT',          6,  10, '{"max_age_days": 7}'::JSONB,
  'Conta destinatária aberta há pouco tempo'),

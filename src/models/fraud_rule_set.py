@@ -10,7 +10,6 @@ class FraudRuleSet(Base):
     id = Column(Integer, primary_key=True)
     version = Column(Integer, nullable=False)
     score_threshold_2fa = Column(Integer, nullable=False)
-    score_threshold_reject = Column(Integer, nullable=True)
     is_active = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 

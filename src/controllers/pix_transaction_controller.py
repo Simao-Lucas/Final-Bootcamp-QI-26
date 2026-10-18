@@ -68,7 +68,6 @@ class PixTransactionController(BaseController):
                 "triggered_rules": [],
                 "score": 0,
                 "score_threshold_2fa": rule_set.score_threshold_2fa,
-                "score_threshold_reject": rule_set.score_threshold_reject,
                 "decision_reason": "document_blocked",
                 "matched_pattern": None,
                 "blocked_documents": blocked_documents,
