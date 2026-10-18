@@ -1,1 +1,3 @@
 from connectors.bankslip_connector import BankSlipConnector
+from connectors.fraud_registry_connector import FraudRegistryConnector
+

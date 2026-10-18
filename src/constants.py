@@ -27,6 +27,19 @@ BANKSLIP_API_INTERNAL_TOKEN = os.environ.get("BANKSLIP_API_INTERNAL_TOKEN", "def
 # src/connectors/rest_connector.py.
 BANKSLIP_API_TIMEOUT = int(os.environ.get("BANKSLIP_API_TIMEOUT", "5"))
 
+# API mock de condenacoes (denylist antifraude Pix). De dentro do
+# container Docker, localhost e o proprio container — use
+# host.docker.internal pra alcancar um mock na maquina host.
+FRAUD_REGISTRY_API_URL = os.environ.get(
+    "FRAUD_REGISTRY_API_URL", "http://host.docker.internal:8765"
+)
+FRAUD_REGISTRY_API_INTERNAL_TOKEN = os.environ.get(
+    "FRAUD_REGISTRY_API_INTERNAL_TOKEN", "default_token"
+)
+# Timeout curto: path frio nao pode travar o Pix. Float de proposito.
+FRAUD_REGISTRY_API_TIMEOUT = float(os.environ.get("FRAUD_REGISTRY_API_TIMEOUT", "0.5"))
+FRAUD_CHECK_TTL_HOURS = float(os.environ.get("FRAUD_CHECK_TTL_HOURS", "6"))
+
 # Rotas públicas: não exigem o header INTERNAL-TOKEN. São as duas que
 # precisam responder pra quem ainda não tem token nenhum: a raiz, que
 # diz quem é este serviço, e o health check, que o Docker consulta pra

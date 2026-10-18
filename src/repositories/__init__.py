@@ -1,1 +1,5 @@
 from repositories.sample_entity_repository import SampleEntityRepository
+from repositories.fraud_rule_set_repository import FraudRuleSetRepository
+from repositories.pix_transaction_repository import PixTransactionRepository
+from repositories.document_block_repository import DocumentBlockRepository
+from repositories.document_watchlist_repository import DocumentWatchlistRepository

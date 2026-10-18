@@ -1,1 +1,2 @@
 from dtos.sample_entity_dto import SampleEntityDTO
+from dtos.pix_transaction_dto import PixTransactionDTO

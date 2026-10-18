@@ -42,6 +42,13 @@ services:
       BANKSLIP_API_URL: ${BANKSLIP_API_URL:-http://localhost:8080}
       BANKSLIP_API_INTERNAL_TOKEN: ${BANKSLIP_API_INTERNAL_TOKEN:-default_token}
       BANKSLIP_API_TIMEOUT: ${BANKSLIP_API_TIMEOUT:-5}
+      # Mock de condenacoes na maquina host (testes de freshness).
+      FRAUD_REGISTRY_API_URL: ${FRAUD_REGISTRY_API_URL:-http://host.docker.internal:8765}
+      FRAUD_REGISTRY_API_INTERNAL_TOKEN: ${FRAUD_REGISTRY_API_INTERNAL_TOKEN:-default_token}
+      FRAUD_REGISTRY_API_TIMEOUT: ${FRAUD_REGISTRY_API_TIMEOUT:-0.5}
+      FRAUD_CHECK_TTL_HOURS: ${FRAUD_CHECK_TTL_HOURS:-6}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       # Monta o codigo pra dentro do container: salvou o arquivo,
       # a API recarrega sozinha (o --reload ali embaixo).

@@ -1,15 +1,19 @@
+import threading
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from constants import check_variables
 from errors import register_error_handlers
 from errors.base_error import error_verification
+from jobs import start_fraud_registry_refresh_job
 from middlewares import (
     register_internal_token_middleware,
     register_request_context_middleware,
     register_request_logger_middleware,
     register_session_manager_middleware,
 )
-from resources import HealthCheckResource, SampleEntityResource
+from resources import HealthCheckResource, PixTransactionResource, SampleEntityResource
 from utils.logger import setup_logging
 
 
@@ -28,6 +32,16 @@ def create_app() -> FastAPI:
     ordem DENTRO do bloco de middlewares tem consequência, e ela está
     explicada logo abaixo.
     """
+    stop_event = threading.Event()
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI):
+        start_fraud_registry_refresh_job(stop_event)
+        try:
+            yield
+        finally:
+            stop_event.set()
+
     # Os três None desligam a documentação automática: o FastAPI sabe
     # gerar sozinho umas páginas descrevendo a API, e aqui elas não
     # existem. Pra ver o que cada rota responde, mande uma requisição —
@@ -36,6 +50,7 @@ def create_app() -> FastAPI:
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        lifespan=lifespan,
     )
 
     # ────────────────────────────────────────────────────────────────
@@ -124,12 +139,24 @@ def create_app() -> FastAPI:
     # atende cada endereço, e mais nada.
     health_check_resource = HealthCheckResource()
     sample_entity_resource = SampleEntityResource()
+    pix_transaction_resource = PixTransactionResource()
 
     application.add_api_route("/", health_check_resource.on_get_home, methods=["GET"])
     application.add_api_route(
         "/health_check",
         health_check_resource.on_get_health_check,
         methods=["GET"]
+    )
+
+    application.add_api_route(
+        "/pix/transaction",
+        pix_transaction_resource.on_post,
+        methods=["POST"],
+    )
+    application.add_api_route(
+        "/pix/transaction/{id}",
+        pix_transaction_resource.on_get_by_id,
+        methods=["GET"],
     )
 
     application.add_api_route(
