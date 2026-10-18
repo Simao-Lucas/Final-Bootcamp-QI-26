@@ -12,7 +12,7 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
-from utils.fraud_engine import decide_status
+from services.fraud_engine import decide_status
 
 from tests.utils import PayloadGenerator, RandomGenerator, RequestGenerator
 

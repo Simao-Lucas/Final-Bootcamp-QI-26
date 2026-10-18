@@ -10,7 +10,7 @@ from repositories import (
     PixTransactionRepository,
 )
 from services.document_freshness import DocumentFreshnessService
-from utils.fraud_engine import FraudEngine, build_evaluation_context
+from services.fraud_engine import FraudEngine, build_evaluation_context
 
 # Brasil sem horario de verao desde 2019: offset fixo evita depender do
 # pacote tzdata no Windows.
