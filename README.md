@@ -156,7 +156,7 @@ Na máquina host (API no Docker):
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r tests/requirements.txt
+pip install -r requirements-dev.txt
 pytest
 ```
 
